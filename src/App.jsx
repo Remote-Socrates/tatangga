@@ -1,4 +1,6 @@
 import Login from "./components/login";
+import QuestionsList from "./components/QuestionList";
+import QuestionForm from "./components/QuestionForm";
 import "./App.css";
 
 function App() {
@@ -6,6 +8,8 @@ function App() {
     <div>
       <h1>TATANGGA</h1>
       <Login />
+      <QuestionForm />
+      <QuestionsList />
     </div>
   );
 }
