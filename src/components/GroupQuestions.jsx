@@ -37,8 +37,6 @@ const GroupQuestions = () => {
   const [error, setError] = useState("");
   const [votedQuestions, setVotedQuestions] = useState(new Set());
   const [isMember, setIsMember] = useState(null);
-  const [editingQuestionId, setEditingQuestionId] = useState(null);
-  const [editQuestionText, setEditQuestionText] = useState("");
 
   // Ambil informasi grup dari database
   useEffect(() => {
