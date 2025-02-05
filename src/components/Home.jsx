@@ -5,6 +5,8 @@ import { signOut } from "firebase/auth";
 import { Container, Row, Col, Button, Card } from "react-bootstrap";
 import "../index.css"; // Ensure styles are imported
 
+import Swal from "sweetalert2";
+
 const Home = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(auth.currentUser);
@@ -16,8 +18,26 @@ const Home = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      setUser(null);
+      Swal.fire({
+        title: "Are you sure you want to logout?",
+        text: "You won't be able to revert this!",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes!",
+      }).then(result => {
+        if (result.isConfirmed) {
+          try {
+            signOut(auth);
+            setUser(null);
+          } catch (err) {
+            setError("Error logging out.");
+          }
+        } else {
+          Swal.fire("Cancelled", "Logout Cancelled", "error");
+        }
+      })
       navigate("/");
     } catch (error) {
       console.error("Logout Error:", error);

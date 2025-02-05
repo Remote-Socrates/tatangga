@@ -13,6 +13,8 @@ import {
 import { Container, Row, Col, Card, Button, Form } from "react-bootstrap";
 import "../index.css";
 
+import Swal from "sweetalert2";
+
 const Groups = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -51,7 +53,12 @@ const Groups = () => {
       return;
     }
     if (!groupName.trim() || !groupDescription.trim()) {
-      setError("Please enter both group name and description.");
+      setError("");
+      Swal.fire({
+        title: "Caution",
+        icon: "error",
+        text: "Please enter both group name and description.",
+      });
       return;
     }
     try {
@@ -60,10 +67,14 @@ const Groups = () => {
         description: groupDescription,
         createdBy: user.uid,
       });
-
       setGroupName("");
       setGroupDescription("");
-      setSuccess("Group created successfully!");
+      setSuccess("");
+      Swal.fire({
+        title: "Success",
+        icon: "success",
+        text: `You have successfully created new group!`,
+      });
     } catch (err) {
       setError("Error creating group. Please try again.");
     }
@@ -86,7 +97,13 @@ const Groups = () => {
       });
 
       setJoinedGroups([...joinedGroups, groupId]);
-      setSuccess("Successfully joined the group!");
+      setSuccess("");
+      const group = groups.find((g) => g.id === groupId);
+      Swal.fire({
+        title: "Success",
+        icon: "success",
+        text: `You have successfully joined the ${group.name} group!`,
+      });
     } catch (err) {
       setError("Error joining group. Please try again.");
     }
