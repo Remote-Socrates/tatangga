@@ -19,7 +19,7 @@ const GroupQuestions = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
-  const [questionText, setQuestionText] = useState(""); // Form input for asking questions
+  const [questionText, setQuestionText] = useState("");
   const [user, setUser] = useState(auth.currentUser);
   const [isMember, setIsMember] = useState(null);
   const [votedQuestions, setVotedQuestions] = useState(new Set());
@@ -70,7 +70,7 @@ const GroupQuestions = () => {
         (snapshot) => {
           const sortedQuestions = snapshot.docs
             .map((doc) => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => b.votes - a.votes); // Sort questions by votes
+            .sort((a, b) => b.votes - a.votes);
           setQuestions(sortedQuestions);
         }
       );
@@ -230,19 +230,41 @@ const GroupQuestions = () => {
             }}
           >
             <div
-              style={{ flex: 1, cursor: "pointer" }}
-              onClick={() =>
-                navigate(`/groups/${groupId}/questions/${question.id}`)
-              }
+              style={{
+                flex: 1,
+                cursor:
+                  editingQuestionId === question.id ? "default" : "pointer",
+              }}
+              onClick={(e) => {
+                if (editingQuestionId !== question.id)
+                  navigate(`/groups/${groupId}/questions/${question.id}`);
+              }}
             >
-              <p>
-                <strong>{question.text}</strong>
-              </p>
-              <p>
-                👤 {question.author} | 👍 {question.votes} votes
-              </p>
+              {editingQuestionId === question.id ? (
+                <>
+                  <input
+                    type="text"
+                    value={editQuestionText}
+                    onChange={(e) => setEditQuestionText(e.target.value)}
+                    onClick={(e) => e.stopPropagation()} // Prevent click from triggering navigation
+                  />
+                  <button onClick={saveEditedQuestion}>Save</button>
+                  <button onClick={() => setEditingQuestionId(null)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p>
+                    <strong>{question.text}</strong>
+                  </p>
+                  <p>
+                    👤 {question.author} | 👍 {question.votes} votes
+                  </p>
+                </>
+              )}
             </div>
-            {user && user.uid === question.userId && (
+            {user && user.uid === question.userId && !editingQuestionId && (
               <>
                 <button onClick={() => startEditingQuestion(question)}>
                   Edit
