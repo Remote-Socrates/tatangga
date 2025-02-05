@@ -6,21 +6,27 @@ import {
   getDocs,
   doc,
   updateDoc,
+  deleteDoc,
   increment,
   query,
   where,
   onSnapshot,
   addDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
 const GroupQuestions = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
+  const [questionText, setQuestionText] = useState(""); // Form input for asking questions
   const [user, setUser] = useState(auth.currentUser);
   const [isMember, setIsMember] = useState(null);
   const [votedQuestions, setVotedQuestions] = useState(new Set());
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
+  const [editQuestionText, setEditQuestionText] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => setUser(user));
@@ -62,9 +68,10 @@ const GroupQuestions = () => {
       return onSnapshot(
         collection(db, `groups/${groupId}/questions`),
         (snapshot) => {
-          setQuestions(
-            snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-          );
+          const sortedQuestions = snapshot.docs
+            .map((doc) => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => b.votes - a.votes); // Sort questions by votes
+          setQuestions(sortedQuestions);
         }
       );
     };
@@ -78,6 +85,41 @@ const GroupQuestions = () => {
 
     return () => unsubscribeAuth();
   }, [groupId, user, isMember]);
+
+  const postQuestion = async () => {
+    setError("");
+    setSuccess("");
+
+    if (!user) {
+      setError("You must be logged in to post a question.");
+      return;
+    }
+
+    if (!isMember) {
+      setError("You must join this group to post a question.");
+      return;
+    }
+
+    if (!questionText.trim()) {
+      setError("Question cannot be empty.");
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, `groups/${groupId}/questions`), {
+        text: questionText,
+        author: user.displayName || user.email,
+        userId: user.uid,
+        votes: 0,
+        timestamp: serverTimestamp(),
+      });
+
+      setQuestionText(""); // Reset input field
+      setSuccess("Question posted successfully!");
+    } catch (err) {
+      setError("Error posting question. Please try again.");
+    }
+  };
 
   const upvoteQuestion = async (questionId) => {
     if (!isMember) {
@@ -105,6 +147,45 @@ const GroupQuestions = () => {
     }
   };
 
+  const startEditingQuestion = (question) => {
+    setEditingQuestionId(question.id);
+    setEditQuestionText(question.text);
+  };
+
+  const saveEditedQuestion = async () => {
+    if (!editQuestionText.trim()) {
+      setError("Question cannot be empty.");
+      return;
+    }
+
+    try {
+      const questionRef = doc(
+        db,
+        `groups/${groupId}/questions`,
+        editingQuestionId
+      );
+      await updateDoc(questionRef, { text: editQuestionText });
+
+      setEditingQuestionId(null);
+      setEditQuestionText("");
+      setSuccess("Question updated successfully!");
+    } catch (err) {
+      setError("Error updating question.");
+    }
+  };
+
+  const deleteQuestion = async (questionId) => {
+    if (!window.confirm("Are you sure you want to delete this question?"))
+      return;
+
+    try {
+      await deleteDoc(doc(db, `groups/${groupId}/questions`, questionId));
+      setSuccess("Question deleted successfully!");
+    } catch (err) {
+      setError("Error deleting question.");
+    }
+  };
+
   if (isMember === null) {
     return <p>Loading...</p>;
   }
@@ -113,7 +194,7 @@ const GroupQuestions = () => {
     return (
       <div style={{ textAlign: "center", padding: "20px" }}>
         <h2>Access Denied</h2>
-        <p>You must join this group to view questions.</p>
+        <p>You must join this group to view and post questions.</p>
         <button onClick={() => navigate("/groups")}>Back to Groups</button>
       </div>
     );
@@ -124,45 +205,61 @@ const GroupQuestions = () => {
       <h2>Group Questions</h2>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
+      {success && <p style={{ color: "green" }}>{success}</p>}
+
+      <h3>Post a Question</h3>
+      <input
+        type="text"
+        placeholder="Ask a question..."
+        value={questionText}
+        onChange={(e) => setQuestionText(e.target.value)}
+      />
+      <button onClick={postQuestion}>Post Question</button>
 
       <ul style={{ listStyle: "none", padding: 0 }}>
-        {questions
-          .sort((a, b) => b.votes - a.votes)
-          .map((question) => (
-            <li
-              key={question.id}
-              style={{
-                margin: "10px 0",
-                border: "1px solid #ccc",
-                padding: "10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
+        {questions.map((question) => (
+          <li
+            key={question.id}
+            style={{
+              margin: "10px 0",
+              border: "1px solid #ccc",
+              padding: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div
+              style={{ flex: 1, cursor: "pointer" }}
+              onClick={() =>
+                navigate(`/groups/${groupId}/questions/${question.id}`)
+              }
             >
-              <div
-                style={{ flex: 1, cursor: "pointer" }}
-                onClick={() =>
-                  navigate(`/groups/${groupId}/questions/${question.id}`)
-                }
-              >
-                <p>
-                  <strong>{question.text}</strong>
-                </p>
-                <p>
-                  👤 {question.author} | 👍 {question.votes} votes
-                </p>
-              </div>
-              {isMember && (
-                <button
-                  onClick={() => upvoteQuestion(question.id)}
-                  disabled={votedQuestions.has(question.id)}
-                >
-                  {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
+              <p>
+                <strong>{question.text}</strong>
+              </p>
+              <p>
+                👤 {question.author} | 👍 {question.votes} votes
+              </p>
+            </div>
+            {user && user.uid === question.userId && (
+              <>
+                <button onClick={() => startEditingQuestion(question)}>
+                  Edit
                 </button>
-              )}
-            </li>
-          ))}
+                <button onClick={() => deleteQuestion(question.id)}>
+                  Delete
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => upvoteQuestion(question.id)}
+              disabled={votedQuestions.has(question.id)}
+            >
+              {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
+            </button>
+          </li>
+        ))}
       </ul>
     </div>
   );
