@@ -6,6 +6,8 @@ import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { Container, Row, Col, Card, Button } from "react-bootstrap";
 import "../index.css";
 
+import Swal from "sweetalert2";
+
 const Auth = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -15,6 +17,11 @@ const Auth = () => {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
+      Swal.fire({
+        title: "Login successful!",
+        icon: "success",
+        showConfirmButton: true,
+      });
       navigate("/"); // Pentalin ke home abis login
     } catch (err) {
       setError("Login failed. Please try again.");

@@ -27,6 +27,8 @@ import {
   Col,
 } from "react-bootstrap";
 
+import Swal from "sweetalert2";
+
 const GroupQuestions = () => {
   const { groupId } = useParams();
   const { user } = useContext(AuthContext);
@@ -37,6 +39,8 @@ const GroupQuestions = () => {
   const [error, setError] = useState("");
   const [votedQuestions, setVotedQuestions] = useState(new Set());
   const [isMember, setIsMember] = useState(null);
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
+  const [editQuestionText, setEditQuestionText] = useState("");
 
   // Ambil informasi grup dari database
   useEffect(() => {
@@ -117,7 +121,12 @@ const GroupQuestions = () => {
     }
 
     if (!questionText.trim()) {
-      setError("Question cannot be empty.");
+      setError("");
+      Swal.fire({
+        icon: "error",
+        title: "Warning",
+        text: "Question cannot be empty.",
+      });
       return;
     }
 
@@ -134,6 +143,64 @@ const GroupQuestions = () => {
       setError("Error posting question.");
     }
   };
+
+  // * Fitur Edit pertanyaan
+  const startEditingQuestion = (question) => {
+    setEditingQuestionId(question.id)
+    setEditQuestionText(question.text)
+  }
+
+  // * Fitur Simpan perubahan pertanyaan
+  const saveEditedQuestion = async () => {
+    if (!editQuestionText.trim()) {
+      setError("Question cannot be empty.");
+      return;
+    }
+
+    // * Try catch
+    try {
+      const questionRef = doc(
+        db,
+        `groups/${groupId}/questions`,
+        editingQuestionId
+      );
+      await updateDoc(questionRef, { text: editQuestionText });
+
+      setEditingQuestionId(null);
+      setEditQuestionText("");
+    } catch (error) {
+      setError("Error updating question.");
+    }
+  }
+
+  // * Fitur Hapus pertanyaan
+  const deleteQuestion = async (questionId) => {
+    if (!isMember) {
+      setError("You must join this group to delete a question.");
+      return;
+    }
+    // * SweetAlert
+    Swal.fire({
+      title: "Are you sure you want to delete this question?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    }).then(result => {
+      if (result.isConfirmed) {
+        try {
+          deleteDoc(doc(db, `groups/${groupId}/questions`, questionId));
+        } catch (error) {
+          setError("Error deleting question.");
+        }
+      } 
+      if (result.isDismissed) {
+        Swal.fire("Cancelled", "Delete question cancelled", "error");
+      }
+    })
+  }
 
   // Voting pertanyaan
   const upvoteQuestion = async (questionId) => {
@@ -217,37 +284,83 @@ const GroupQuestions = () => {
             {questions.length > 0 ? (
               questions.map((question) => (
                 <ListGroup.Item
-                  key={question.id}
-                  className="d-flex flex-column gap-2"
-                  onClick={() =>
-                    navigate(`/groups/${groupId}/questions/${question.id}`)
-                  }
-                  style={{ cursor: "pointer" }}
+                    key={question.id}
+                    className="d-flex flex-column gap-2"
+                    onClick={(e) => {
+                    if (!editingQuestionId) {
+                        navigate(`/groups/${groupId}/questions/${question.id}`);
+                    }
+                    }}
+                    style={{ cursor: "pointer" }}
                 >
-                  <p className="mb-1">
-                    <strong>{question.text}</strong>
-                  </p>
-                  <p className="text-muted mb-0">
-                    👤 {question.author} | 👍 {question.votes} votes
-                  </p>
-
-                  <Row className="mt-2">
+                    {editingQuestionId === question.id ? (
+                    <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+                        <Form.Control
+                        type="text"
+                        value={editQuestionText}
+                        onChange={(e) => setEditQuestionText(e.target.value)}
+                        className="mb-2"
+                        />
+                        <Button variant="success" size="sm" className="me-2" onClick={saveEditedQuestion}>
+                        Save
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
+                        Cancel
+                        </Button>
+                    </div>
+                    ) : (
+                    <>
+                        <p className="mb-1">
+                        <strong>{question.text}</strong>
+                        </p>
+                        <p className="text-muted mb-0">
+                        👤 {question.author} | 👍 {question.votes} votes
+                        </p>
+                    </>
+                    )}
+                    <Row className="mt-2">
                     <Col>
-                      <Button
+                        <Button
                         variant="outline-success"
                         size="sm"
                         onClick={(e) => {
-                          e.stopPropagation();
-                          upvoteQuestion(question.id);
+                            e.stopPropagation();
+                            upvoteQuestion(question.id);
                         }}
                         disabled={votedQuestions.has(question.id)}
-                      >
+                        >
                         {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
-                      </Button>
+                        </Button>
+                        {user && user.uid === question.userId && (
+                        <>
+                            <Button
+                            variant="outline-primary"
+                            size="sm"
+                            className="ms-2"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingQuestion(question);
+                            }}
+                            >
+                            Edit
+                            </Button>
+                            <Button
+                            variant="outline-danger"
+                            size="sm"
+                            className="ms-2"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                deleteQuestion(question.id);
+                            }}
+                            >
+                            Delete
+                            </Button>
+                        </>
+                        )}
                     </Col>
-                  </Row>
+                    </Row>
                 </ListGroup.Item>
-              ))
+                ))
             ) : (
               <p className="text-muted">
                 No questions yet. Be the first to ask one!

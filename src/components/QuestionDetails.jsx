@@ -26,6 +26,8 @@ import {
   Col,
 } from "react-bootstrap";
 
+import Swal from "sweetalert2";
+
 const QuestionDetails = () => {
   const { groupId, questionId } = useParams();
   const { user } = useContext(AuthContext);
@@ -78,7 +80,12 @@ const QuestionDetails = () => {
     }
 
     if (!answerText.trim()) {
-      setError("Answer cannot be empty.");
+      setError("");
+      Swal.fire({
+        icon: "error",
+        title: "Warning",
+        text: "Answer cannot be empty.",
+      });
       return;
     }
 
@@ -153,7 +160,6 @@ const QuestionDetails = () => {
         editingAnswerId
       );
       await updateDoc(answerRef, { text: editAnswerText });
-
       setEditingAnswerId(null);
       setEditAnswerText("");
     } catch (err) {
@@ -161,16 +167,30 @@ const QuestionDetails = () => {
     }
   };
 
+  // * Fitur Delete Swal (Jawaban)
   const deleteAnswer = async (answerId) => {
-    if (!window.confirm("Are you sure you want to delete this answer?")) return;
-
-    try {
-      await deleteDoc(
-        doc(db, `groups/${groupId}/questions/${questionId}/answers`, answerId)
-      );
-    } catch (err) {
-      setError("Error deleting answer.");
-    }
+    Swal.fire({
+      title: "Are you sure you want to delete this answer?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#3085d6",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    }).then(result => {
+      if (result.isConfirmed) {
+        try {
+          deleteDoc(
+            doc(db, `groups/${groupId}/questions/${questionId}/answers`, answerId)
+          );
+        } catch (err) {
+          setError("Error deleting answer.");
+        }
+      }
+      if (result.isDismissed) {
+        Swal.fire("Cancelled", "Delete answer cancelled", "error");
+      }
+    })
   };
 
   return (
