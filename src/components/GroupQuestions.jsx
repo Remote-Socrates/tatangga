@@ -3,27 +3,24 @@ import { useParams, useNavigate } from "react-router";
 import { db, auth } from "../firebaseConfig";
 import {
   collection,
-  addDoc,
   getDocs,
   doc,
   updateDoc,
   increment,
   query,
   where,
-  serverTimestamp,
   onSnapshot,
+  addDoc,
 } from "firebase/firestore";
 
 const GroupQuestions = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
-  const [questionText, setQuestionText] = useState("");
   const [user, setUser] = useState(auth.currentUser);
   const [isMember, setIsMember] = useState(null);
   const [votedQuestions, setVotedQuestions] = useState(new Set());
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => setUser(user));
@@ -65,11 +62,9 @@ const GroupQuestions = () => {
       return onSnapshot(
         collection(db, `groups/${groupId}/questions`),
         (snapshot) => {
-          const questionsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setQuestions(questionsData);
+          setQuestions(
+            snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+          );
         }
       );
     };
@@ -111,19 +106,14 @@ const GroupQuestions = () => {
   };
 
   if (isMember === null) {
-    return (
-      <div style={{ textAlign: "center", padding: "20px" }}>
-        <h2>Loading...</h2>
-        <p>Checking your membership status...</p>
-      </div>
-    );
+    return <p>Loading...</p>;
   }
 
   if (!isMember) {
     return (
       <div style={{ textAlign: "center", padding: "20px" }}>
         <h2>Access Denied</h2>
-        <p>You must join this group to view and post questions.</p>
+        <p>You must join this group to view questions.</p>
         <button onClick={() => navigate("/groups")}>Back to Groups</button>
       </div>
     );
@@ -131,32 +121,9 @@ const GroupQuestions = () => {
 
   return (
     <div style={{ textAlign: "center", padding: "20px" }}>
-      <h2>Group Q&A</h2>
+      <h2>Group Questions</h2>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
-
-      {user && isMember && (
-        <div>
-          <h3>Ask a Question</h3>
-          <input
-            type="text"
-            placeholder="Type your question..."
-            value={questionText}
-            onChange={(e) => setQuestionText(e.target.value)}
-          />
-          <button
-            onClick={() => {
-              setSuccess("");
-              setError("");
-              postQuestion();
-            }}
-            style={{ marginLeft: "10px", padding: "5px 15px" }}
-          >
-            Post Question
-          </button>
-        </div>
-      )}
 
       <ul style={{ listStyle: "none", padding: 0 }}>
         {questions
@@ -168,12 +135,24 @@ const GroupQuestions = () => {
                 margin: "10px 0",
                 border: "1px solid #ccc",
                 padding: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              <p>{question.text}</p>
-              <p>
-                👤 {question.author} | 👍 {question.votes} votes
-              </p>
+              <div
+                style={{ flex: 1, cursor: "pointer" }}
+                onClick={() =>
+                  navigate(`/groups/${groupId}/questions/${question.id}`)
+                }
+              >
+                <p>
+                  <strong>{question.text}</strong>
+                </p>
+                <p>
+                  👤 {question.author} | 👍 {question.votes} votes
+                </p>
+              </div>
               {isMember && (
                 <button
                   onClick={() => upvoteQuestion(question.id)}
