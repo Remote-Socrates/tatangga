@@ -22,6 +22,7 @@ const QuestionForm = () => {
         timestamp: serverTimestamp(),
       });
       setQuestion(""); // Bersihin input setelah submit
+      console.log("Question submitted successfully!");
     } catch (error) {
       console.error("Error mengirimkan pertanyaan: ", error);
     }

@@ -9,7 +9,12 @@ const QuestionsList = () => {
     const q = query(collection(db, "questions"), orderBy("timestamp", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setQuestions(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const questionsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      console.log("Fetched Questions:", questionsData); // Debugging
+      setQuestions(questionsData);
     });
 
     return () => unsubscribe();
