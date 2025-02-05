@@ -6,16 +6,25 @@ import {
   addDoc,
   updateDoc,
   increment,
-  doc,
   deleteDoc,
   onSnapshot,
   query,
   orderBy,
   where,
   getDocs,
+  doc,
 } from "firebase/firestore";
 import { AuthContext } from "../context/AuthContext";
 import { QuestionContext } from "../context/QuestionContext";
+import {
+  Container,
+  Card,
+  Button,
+  Form,
+  ListGroup,
+  Row,
+  Col,
+} from "react-bootstrap";
 
 const QuestionDetails = () => {
   const { groupId, questionId } = useParams();
@@ -29,7 +38,6 @@ const QuestionDetails = () => {
   const [editAnswerText, setEditAnswerText] = useState("");
   const [votedAnswers, setVotedAnswers] = useState(new Set());
 
-  // ✅ Load answers in real-time and sort by votes
   useEffect(() => {
     if (!groupId || !questionId) return;
 
@@ -45,7 +53,6 @@ const QuestionDetails = () => {
     return () => unsubscribe();
   }, [groupId, questionId]);
 
-  // ✅ Fetch user's voted answers
   useEffect(() => {
     if (!user) return;
 
@@ -64,7 +71,6 @@ const QuestionDetails = () => {
     fetchUserVotes();
   }, [user, groupId, questionId]);
 
-  // ✅ Post an answer
   const postAnswer = async () => {
     if (!user) {
       setError("You must be logged in to post an answer.");
@@ -87,13 +93,12 @@ const QuestionDetails = () => {
         }
       );
 
-      setAnswerText(""); // Reset input
+      setAnswerText("");
     } catch (err) {
       setError("Error posting answer.");
     }
   };
 
-  // ✅ Upvote an answer (only once per user)
   const upvoteAnswer = async (answerId) => {
     if (!user) {
       setError("You must be logged in to vote.");
@@ -130,13 +135,11 @@ const QuestionDetails = () => {
     }
   };
 
-  // ✅ Start editing an answer
   const startEditingAnswer = (answer) => {
     setEditingAnswerId(answer.id);
     setEditAnswerText(answer.text);
   };
 
-  // ✅ Save the edited answer
   const saveEditedAnswer = async () => {
     if (!editAnswerText.trim()) {
       setError("Answer cannot be empty.");
@@ -158,7 +161,6 @@ const QuestionDetails = () => {
     }
   };
 
-  // ✅ Delete an answer (only for the original author)
   const deleteAnswer = async (answerId) => {
     if (!window.confirm("Are you sure you want to delete this answer?")) return;
 
@@ -172,87 +174,119 @@ const QuestionDetails = () => {
   };
 
   return (
-    <div>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <Container className="mt-5">
+      {error && <p className="text-danger">{error}</p>}
 
       {question ? (
-        <>
-          <h2>{question.text}</h2>
-          <p>
-            👤 {question.author} | 👍 {question.votes} votes
-          </p>
+        <Card className="p-4 shadow-lg">
+          <Card.Body>
+            <h2 className="text-primary">{question.text}</h2>
+            <p className="text-muted">
+              👤 {question.author} | 👍 {question.votes} votes
+            </p>
 
-          <h3>Post an Answer</h3>
-          <input
-            type="text"
-            placeholder="Write your answer..."
-            value={answerText}
-            onChange={(e) => setAnswerText(e.target.value)}
-          />
-          <button onClick={postAnswer}>Post Answer</button>
+            {/* Formulir jawaban */}
+            <Form className="mt-4">
+              <h4>Post an Answer</h4>
+              <Form.Control
+                type="text"
+                placeholder="Write your answer..."
+                value={answerText}
+                onChange={(e) => setAnswerText(e.target.value)}
+                className="mb-2"
+              />
+              <Button variant="primary" className="w-100" onClick={postAnswer}>
+                Post Answer
+              </Button>
+            </Form>
 
-          <h3>Answers</h3>
-          <ul>
-            {answers.length > 0 ? (
-              answers.map((answer) => (
-                <li
-                  key={answer.id}
-                  style={{
-                    marginBottom: "10px",
-                    border: "1px solid #ccc",
-                    padding: "10px",
-                  }}
-                >
-                  {editingAnswerId === answer.id ? (
-                    <>
-                      <input
-                        type="text"
-                        value={editAnswerText}
-                        onChange={(e) => setEditAnswerText(e.target.value)}
-                      />
-                      <button onClick={saveEditedAnswer}>Save</button>
-                      <button onClick={() => setEditingAnswerId(null)}>
-                        Cancel
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        {answer.text} - 👤 {answer.author} | 👍 {answer.votes}{" "}
-                        votes
-                      </p>
-                    </>
-                  )}
-
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    {user && user.uid === answer.userId && (
-                      <>
-                        <button onClick={() => startEditingAnswer(answer)}>
-                          Edit
-                        </button>
-                        <button onClick={() => deleteAnswer(answer.id)}>
-                          Delete
-                        </button>
-                      </>
+            {/* Daftar jawaban di map */}
+            <h4 className="mt-4">Answers</h4>
+            <ListGroup className="mt-2">
+              {answers.length > 0 ? (
+                answers.map((answer) => (
+                  <ListGroup.Item
+                    key={answer.id}
+                    className="d-flex flex-column gap-2"
+                  >
+                    {editingAnswerId === answer.id ? (
+                      <div>
+                        <Form.Control
+                          type="text"
+                          value={editAnswerText}
+                          onChange={(e) => setEditAnswerText(e.target.value)}
+                          className="mb-2"
+                        />
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={saveEditedAnswer}
+                          className="me-2"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setEditingAnswerId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Row>
+                        <Col xs={8}>
+                          <p className="mb-1">
+                            {answer.text} - 👤 {answer.author} | 👍{" "}
+                            {answer.votes} votes
+                          </p>
+                        </Col>
+                        <Col xs={4} className="text-end">
+                          {user && user.uid === answer.userId && (
+                            <>
+                              <Button
+                                variant="outline-primary"
+                                size="sm"
+                                className="me-2"
+                                onClick={() => startEditingAnswer(answer)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => deleteAnswer(answer.id)}
+                              >
+                                Delete
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="outline-success"
+                            size="sm"
+                            className="ms-2"
+                            onClick={() => upvoteAnswer(answer.id)}
+                            disabled={votedAnswers.has(answer.id)}
+                          >
+                            {votedAnswers.has(answer.id) ? "Voted" : "Upvote"}
+                          </Button>
+                        </Col>
+                      </Row>
                     )}
-                    <button
-                      onClick={() => upvoteAnswer(answer.id)}
-                      disabled={votedAnswers.has(answer.id)}
-                    >
-                      {votedAnswers.has(answer.id) ? "Voted" : "Upvote"}
-                    </button>
-                  </div>
-                </li>
-              ))
-            ) : (
-              <p>No answers yet. Be the first to answer!</p>
-            )}
-          </ul>
-        </>
+                  </ListGroup.Item>
+                ))
+              ) : (
+                <p className="text-muted">
+                  No answers yet. Be the first to answer!
+                </p>
+              )}
+            </ListGroup>
+          </Card.Body>
+        </Card>
       ) : (
-        <p>Loading question...</p>
+        <p className="text-muted">Loading question...</p>
       )}
-    </div>
+    </Container>
   );
 };
 

@@ -1,68 +1,304 @@
-/* :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
+/* Global Styles */
+body,
+html {
+  background: url("https://img.freepik.com/free-vector/hand-drawn-artistic-leaves-pattern-soft-backdrop-decor_1017-49518.jpg")
+    repeat;
+  background-size: 626px 358px; /* Adjust tile size */
+  color: #3d3d3d;
+  font-family: "Arial", sans-serif;
+  height: 100%;
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  padding: 0;
+}
+.btn-primary {
+  background-color: #5a9bd5 !important;
+  border-color: #5a9bd5 !important;
+}
+
+/* Ensure background covers the full viewport */
+#root {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.home-container,
+.auth-container,
+.groups-container {
+  flex-grow: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.home-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+/* Outline button style with soft blue color */
+.btn-outline-soft {
+  border: 2px solid #5a9bd5; /* Soft blue */
+  color: #5a9bd5;
+  background: transparent;
+  border-radius: 50px; /* Pill Shape */
+  padding: 10px 20px;
+  font-size: 1.2rem;
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: all 0.3s ease-in-out;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+/* Hover Effect: Glow, Scale, and Filled Background */
+.btn-outline-soft:hover {
+  background-color: #5a9bd5;
+  color: white;
+  box-shadow: 0 0 15px rgba(90, 155, 213, 0.8); /* Glow effect */
+  transform: scale(1.08);
+}
+
+/* Increase image size & center */
+.home-banner {
+  width: 100%;
+  max-width: 1100px; /* Bigger image for large screens */
+  height: auto;
+  border-radius: 15px;
+  margin-bottom: 20px;
+}
+
+/* Improve card appearance */
+.home-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 50px;
+  text-align: center;
+  width: 90%;
+  max-width: 850px; /* Ensures proper scaling */
+}
+
+/* Adjust "Euy TATANGGA!" size */
+.home-card h1 {
+  font-size: 3rem; /* Proper balance on all screen sizes */
+  font-weight: bold;
+  padding: 0 10px;
+}
+
+/* Responsive text scaling */
+.home-card h3 {
+  font-size: 1.6rem;
+  margin-top: 10px;
+}
+
+/* Buttons styling */
+.btn-primary {
+  background-color: #5a9bd5;
+  border-radius: 50px; /* Pill shape */
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  border: none;
+  transition: all 0.3s ease-in-out;
+}
+.btn-danger {
+  background-color: pink;
+  border-radius: 50px; /* Pill shape */
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  border: none;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Hover effects */
+.btn-primary:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.btn-danger:hover {
+  background-color: #b02a37;
+  transform: scale(1.05);
+}
+
+/* Fix desktop layout issues */
+@media (min-width: 1200px) {
+  .home-container {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding-top: 40px;
   }
-  a:hover {
-    color: #747bff;
+
+  .home-banner {
+    max-width: 1200px; /* Bigger image for 1920x1080 screens */
+    justify-self: center;
   }
-  button {
-    background-color: #f9f9f9;
+
+  .home-card {
+    max-width: 900px;
+    padding: 60px;
+    justify-self: center;
   }
-} */
+
+  .home-card h1 {
+    font-size: 3.5rem; /* Ensure text size is large but balanced */
+  }
+
+  .home-card h3 {
+    font-size: 1.8rem;
+  }
+}
+
+/* Fix mobile layout issues */
+@media (max-width: 768px) {
+  .home-banner {
+    width: 100%;
+    max-width: 600px;
+  }
+
+  .home-card {
+    max-width: 90%;
+    padding: 40px;
+  }
+
+  .home-card h1 {
+    font-size: 2rem;
+  }
+}
+
+/* Auth Page Styling */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+/* Banner Styling */
+.auth-banner {
+  width: 100%;
+  max-width: 1000px; /* Ensure a bigger image on large screens */
+  height: auto;
+  border-radius: 15px;
+  margin-bottom: 20px;
+}
+
+/* Card Styling */
+.auth-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  padding: 50px;
+  text-align: center;
+  width: 90%;
+  max-width: 500px;
+}
+
+/* Title Styling */
+.auth-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+}
+
+/* Responsive Image Scaling */
+@media (min-width: 1200px) {
+  .auth-banner {
+    max-width: 1200px; /* Ensures proper size on 1920x1080 screens */
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-banner {
+    width: 100%;
+    max-width: 600px;
+  }
+}
+
+/* Groups Page Styling */
+.groups-container {
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+/* Title Styling */
+.groups-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+/* Group Cards */
+.group-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s ease-in-out;
+  height: 100%; /* Ensures cards have equal height */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Ensures all group cards have equal height */
+.group-card .card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Buttons Section - Fixed height to keep card sizes uniform */
+.button-container {
+  min-height: 70px;
+}
+
+/* Keeps button space even if "Join Group" button is missing */
+.button-placeholder {
+  height: 42px; /* Same as button height */
+}
+
+/* Group Creation Card */
+.create-group-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 20px auto;
+}
+
+/* Button Styling */
+.btn-primary,
+.btn-success {
+  font-size: 1.1rem;
+  border-radius: 8px;
+  transition: background 0.3s, transform 0.2s;
+}
+
+/* Button Hover Effects */
+.btn-primary:hover {
+  background-color: #0056b3;
+  transform: scale(1.05);
+}
+
+.btn-success:hover {
+  background-color: #198754;
+  transform: scale(1.05);
+}
+
+/* Responsive Grid for Groups */
+@media (min-width: 1200px) {
+  .groups-container {
+    padding: 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .group-card {
+    max-width: 90%;
+    margin: 0 auto;
+  }
+}

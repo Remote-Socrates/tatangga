@@ -17,11 +17,20 @@ import {
 import { AuthContext } from "../context/AuthContext";
 import { GroupContext } from "../context/GroupContext";
 import { QuestionContext } from "../context/QuestionContext";
+import {
+  Container,
+  Card,
+  Button,
+  Form,
+  ListGroup,
+  Row,
+  Col,
+} from "react-bootstrap";
 
 const GroupQuestions = () => {
   const { groupId } = useParams();
   const { user } = useContext(AuthContext);
-  const { selectedGroup } = useContext(GroupContext);
+  const { selectedGroup, setSelectedGroup } = useContext(GroupContext);
   const { questions, setQuestions } = useContext(QuestionContext);
   const navigate = useNavigate();
   const [questionText, setQuestionText] = useState("");
@@ -31,7 +40,25 @@ const GroupQuestions = () => {
   const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [editQuestionText, setEditQuestionText] = useState("");
 
-  // ✅ Check if user is a member of the group
+  // Ambil informasi grup dari database
+  useEffect(() => {
+    if (!groupId) return;
+
+    const fetchGroup = async () => {
+      const groupRef = doc(db, "groups", groupId);
+      const groupSnap = await getDocs(
+        query(collection(db, "groups"), where("id", "==", groupId))
+      );
+
+      if (!groupSnap.empty) {
+        setSelectedGroup(groupSnap.docs[0].data());
+      }
+    };
+
+    fetchGroup();
+  }, [groupId, setSelectedGroup]);
+
+  // Cek user anggota grup atau bukan
   useEffect(() => {
     if (!user) {
       setIsMember(false);
@@ -51,7 +78,7 @@ const GroupQuestions = () => {
     checkMembership();
   }, [user, groupId]);
 
-  // ✅ Fetch user's voted questions
+  // Ambil pertanyaan dari grup dan yang sudah divote user
   useEffect(() => {
     if (!user || !isMember) return;
 
@@ -69,9 +96,9 @@ const GroupQuestions = () => {
     fetchUserVotes();
   }, [user, groupId, isMember]);
 
-  // ✅ Fetch and update questions in real time
+  // Ambil pertanyaan dan update real time
   useEffect(() => {
-    if (!groupId) return;
+    if (!groupId || isMember === false) return;
 
     const q = query(
       collection(db, `groups/${groupId}/questions`),
@@ -82,9 +109,9 @@ const GroupQuestions = () => {
     });
 
     return () => unsubscribe();
-  }, [groupId, setQuestions]);
+  }, [groupId, isMember, setQuestions]);
 
-  // ✅ Post a new question
+  // Posting pertanyaan baru
   const postQuestion = async () => {
     if (!isMember) {
       setError("You must join this group to post a question.");
@@ -110,7 +137,7 @@ const GroupQuestions = () => {
     }
   };
 
-  // ✅ Upvote a question
+  // Voting pertanyaan
   const upvoteQuestion = async (questionId) => {
     if (!isMember) {
       setError("You must join this group to vote.");
@@ -137,136 +164,101 @@ const GroupQuestions = () => {
     }
   };
 
-  // ✅ Start editing a question
-  const startEditingQuestion = (question) => {
-    setEditingQuestionId(question.id);
-    setEditQuestionText(question.text);
-  };
+  // Blok akses grup kalau bukan member grupnya
+  if (isMember === null) {
+    return <p className="text-center mt-5">Checking membership status...</p>;
+  }
 
-  // ✅ Save the edited question
-  const saveEditedQuestion = async () => {
-    if (!editQuestionText.trim()) {
-      setError("Question cannot be empty.");
-      return;
-    }
-
-    try {
-      const questionRef = doc(
-        db,
-        `groups/${groupId}/questions`,
-        editingQuestionId
-      );
-      await updateDoc(questionRef, { text: editQuestionText });
-
-      setEditingQuestionId(null);
-      setEditQuestionText("");
-    } catch (err) {
-      setError("Error updating question.");
-    }
-  };
-
-  // ✅ Delete a question
-  const deleteQuestion = async (questionId) => {
-    if (!isMember) {
-      setError("You must join this group to delete a question.");
-      return;
-    }
-
-    if (!window.confirm("Are you sure you want to delete this question?"))
-      return;
-
-    try {
-      await deleteDoc(doc(db, `groups/${groupId}/questions`, questionId));
-    } catch (err) {
-      setError("Error deleting question.");
-    }
-  };
+  if (!isMember) {
+    return (
+      <Container className="mt-5 text-center">
+        <Card className="p-5 shadow-lg">
+          <h2 className="text-danger">Access Denied</h2>
+          <p>You must join this group to view and interact with questions.</p>
+          <Button variant="primary" onClick={() => navigate("/groups")}>
+            Back to Groups
+          </Button>
+        </Card>
+      </Container>
+    );
+  }
 
   return (
-    <div>
-      <h2>{selectedGroup?.name} - Questions</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <Container className="mt-5">
+      {error && <p className="text-danger">{error}</p>}
 
-      <div>
-        <input
-          type="text"
-          placeholder="Ask a question..."
-          value={questionText}
-          onChange={(e) => setQuestionText(e.target.value)}
-        />
-        <button onClick={postQuestion} disabled={!isMember}>
-          Post Question
-        </button>
-      </div>
+      <Card className="p-4 shadow-lg">
+        <Card.Body>
+          <h2 className="text-primary text-center">
+            {selectedGroup?.name || "Group"} Questions
+          </h2>
 
-      <ul>
-        {questions.length > 0 ? (
-          questions.map((question) => (
-            <li
-              key={question.id}
-              style={{
-                marginBottom: "10px",
-                border: "1px solid #ccc",
-                padding: "10px",
-              }}
+          {/* Form buat nanya pertanyaan */}
+          <Form className="mt-4">
+            <h4>Post a Question</h4>
+            <Form.Control
+              type="text"
+              placeholder="Ask a question..."
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              className="mb-2"
+            />
+            <Button
+              variant="primary"
+              className="w-100"
+              onClick={postQuestion}
+              disabled={!isMember}
             >
-              <div
-                style={{ cursor: "pointer", flex: 1 }}
-                onClick={(e) => {
-                  if (!editingQuestionId)
-                    navigate(`/groups/${groupId}/questions/${question.id}`);
-                  e.stopPropagation();
-                }}
-              >
-                {editingQuestionId === question.id ? (
-                  <>
-                    <input
-                      type="text"
-                      value={editQuestionText}
-                      onChange={(e) => setEditQuestionText(e.target.value)}
-                    />
-                    <button onClick={saveEditedQuestion}>Save</button>
-                    <button onClick={() => setEditingQuestionId(null)}>
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p>
-                      <strong>{question.text}</strong>
-                    </p>
-                    <p>
-                      👤 {question.author} | 👍 {question.votes} votes
-                    </p>
-                  </>
-                )}
-              </div>
+              Post Question
+            </Button>
+          </Form>
 
-              <div style={{ display: "flex", gap: "10px" }}>
-                {user && user.uid === question.userId && (
-                  <>
-                    <button onClick={() => startEditingQuestion(question)}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteQuestion(question.id)}>
-                      Delete
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => upvoteQuestion(question.id)}
-                  disabled={!isMember || votedQuestions.has(question.id)}
+          {/* Daftar pertanyaan di map */}
+          <h4 className="mt-4">Questions</h4>
+          <ListGroup className="mt-2">
+            {questions.length > 0 ? (
+              questions.map((question) => (
+                <ListGroup.Item
+                  key={question.id}
+                  className="d-flex flex-column gap-2"
+                  onClick={() =>
+                    navigate(`/groups/${groupId}/questions/${question.id}`)
+                  }
+                  style={{ cursor: "pointer" }}
                 >
-                  {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
-                </button>
-              </div>
-            </li>
-          ))
-        ) : (
-          <p>No questions yet. Be the first to ask one!</p>
-        )}
-      </ul>
-    </div>
+                  <p className="mb-1">
+                    <strong>{question.text}</strong>
+                  </p>
+                  <p className="text-muted mb-0">
+                    👤 {question.author} | 👍 {question.votes} votes
+                  </p>
+
+                  <Row className="mt-2">
+                    <Col>
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          upvoteQuestion(question.id);
+                        }}
+                        disabled={votedQuestions.has(question.id)}
+                      >
+                        {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
+                      </Button>
+                    </Col>
+                  </Row>
+                </ListGroup.Item>
+              ))
+            ) : (
+              <p className="text-muted">
+                No questions yet. Be the first to ask one!
+              </p>
+            )}
+          </ListGroup>
+        </Card.Body>
+      </Card>
+    </Container>
   );
 };
 

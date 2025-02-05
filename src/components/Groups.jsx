@@ -1,6 +1,5 @@
 import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { GroupContext } from "../context/GroupContext";
 import { AuthContext } from "../context/AuthContext";
 import { db } from "../firebaseConfig";
 import {
@@ -11,18 +10,19 @@ import {
   getDocs,
   onSnapshot,
 } from "firebase/firestore";
+import { Container, Row, Col, Card, Button, Form } from "react-bootstrap";
+import "../index.css";
 
 const Groups = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [groups, setGroups] = useState([]); // Local state for groups
+  const [groups, setGroups] = useState([]);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [joinedGroups, setJoinedGroups] = useState([]);
 
-  // ✅ Real-time listener for groups
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "groups"), (snapshot) => {
       setGroups(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
@@ -30,7 +30,6 @@ const Groups = () => {
     return () => unsubscribe();
   }, []);
 
-  // ✅ Fetch user's joined groups
   useEffect(() => {
     if (!user) return;
 
@@ -46,7 +45,6 @@ const Groups = () => {
     fetchJoinedGroups();
   }, [user]);
 
-  // ✅ Create a new group and update UI immediately
   const createGroup = async () => {
     if (!user) {
       setError("You must be logged in to create a group.");
@@ -62,17 +60,6 @@ const Groups = () => {
         description: groupDescription,
         createdBy: user.uid,
       });
-
-      // ✅ Optimistically update the UI
-      setGroups((prevGroups) => [
-        ...prevGroups,
-        {
-          id: newGroupRef.id,
-          name: groupName,
-          description: groupDescription,
-          createdBy: user.uid,
-        },
-      ]);
 
       setGroupName("");
       setGroupDescription("");
@@ -106,57 +93,75 @@ const Groups = () => {
   };
 
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
-      <h2>Available Groups</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
+    <Container fluid className="groups-container text-center">
+      <h2 className="groups-title">Explore Groups</h2>
+      {error && <p className="text-danger">{error}</p>}
+      {success && <p className="text-success">{success}</p>}
 
       {user && (
-        <div>
-          <h3>Create a New Group</h3>
-          <input
-            type="text"
-            placeholder="Group Name"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Group Description"
-            value={groupDescription}
-            onChange={(e) => setGroupDescription(e.target.value)}
-          />
-          <button onClick={createGroup}>Create Group</button>
-        </div>
+        <Card className="p-4 shadow-sm create-group-card">
+          <h4>Create a New Group</h4>
+          <Form.Group>
+            <Form.Control
+              type="text"
+              placeholder="Group Name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+              className="mb-2"
+            />
+            <Form.Control
+              type="text"
+              placeholder="Group Description"
+              value={groupDescription}
+              onChange={(e) => setGroupDescription(e.target.value)}
+              className="mb-2"
+            />
+            <Button variant="primary" onClick={createGroup}>
+              Create Group
+            </Button>
+          </Form.Group>
+        </Card>
       )}
 
-      <ul>
+      <Row className="mt-4">
         {groups.map((group) => (
-          <li
-            key={group.id}
-            style={{
-              marginBottom: "15px",
-              padding: "10px",
-              border: "1px solid #ccc",
-            }}
-          >
-            <h3>{group.name}</h3>
-            <p>{group.description}</p>
-            <button onClick={() => navigate(`/groups/${group.id}`)}>
-              View Group
-            </button>
-            {!joinedGroups.includes(group.id) && (
-              <button
-                onClick={() => joinGroup(group.id)}
-                style={{ marginLeft: "10px" }}
-              >
-                Join Group
-              </button>
-            )}
-          </li>
+          <Col xs={12} md={6} lg={4} key={group.id} className="mb-4">
+            <Card className="group-card shadow-sm">
+              <Card.Body className="d-flex flex-column">
+                <div className="flex-grow-1">
+                  <Card.Title className="fw-bold">{group.name}</Card.Title>
+                  <Card.Text className="text-muted mb-3">
+                    {group.description}
+                  </Card.Text>
+                </div>
+
+                <div className="button-container">
+                  <Button
+                    variant="outline-primary"
+                    className="w-100 rounded-pill"
+                    onClick={() => navigate(`/groups/${group.id}`)}
+                  >
+                    View Group
+                  </Button>
+
+                  <div className="button-placeholder">
+                    {!joinedGroups.includes(group.id) && (
+                      <Button
+                        variant="outline-primary"
+                        className="w-100 mt-2 rounded-pill"
+                        onClick={() => joinGroup(group.id)}
+                      >
+                        Join Group
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
         ))}
-      </ul>
-    </div>
+      </Row>
+    </Container>
   );
 };
 

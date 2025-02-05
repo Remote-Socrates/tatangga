@@ -3,6 +3,8 @@ import { useNavigate } from "react-router";
 import { AuthContext } from "../context/AuthContext";
 import { auth } from "../firebaseConfig";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { Container, Row, Col, Card, Button } from "react-bootstrap";
+import "../index.css";
 
 const Auth = () => {
   const { user } = useContext(AuthContext);
@@ -13,26 +15,59 @@ const Auth = () => {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      navigate("/"); // Redirect to Home after login
+      navigate("/"); // Pentalin ke home abis login
     } catch (err) {
       setError("Login failed. Please try again.");
     }
   };
 
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
-      <h2>Login to Q&A App</h2>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+    <Container fluid className="auth-container text-center">
+      <Row className="justify-content-center">
+        <Col xs={12} md={10} lg={10}>
+          <img
+            src="https://img.freepik.com/free-vector/neighbors-communication-friendly-people-windows_107791-15347.jpg"
+            alt="Community"
+            className="img-fluid auth-banner"
+          />
+        </Col>
+      </Row>
 
-      {user ? (
-        <>
-          <p>Logged in as {user.displayName || user.email}</p>
-          <button onClick={() => navigate("/")}>Go to Home</button>
-        </>
-      ) : (
-        <button onClick={loginWithGoogle}>Login with Google</button>
-      )}
-    </div>
+      <Row className="justify-content-center">
+        <Col xs={12} md={10} lg={12}>
+          <Card className="p-5 shadow-lg auth-card">
+            <h1 className="auth-title">Euy TATANGGA!</h1>
+            <p className="text-muted">Gabung dan mulai Q&A dengan tetangga!</p>
+
+            {error && <p className="text-danger">{error}</p>}
+
+            {user ? (
+              <>
+                <p className="text-secondary">
+                  Anda sudah masuk sebagai{" "}
+                  <strong>{user.displayName || user.email}</strong>
+                </p>
+                <Button
+                  variant="primary"
+                  className="w-100 mt-3"
+                  onClick={() => navigate("/")}
+                >
+                  <i className="bi bi-house-door"></i> Ke Home
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="danger"
+                className="w-100 mt-3"
+                onClick={loginWithGoogle}
+              >
+                <i className="bi bi-google"></i> Masuk dengan Google
+              </Button>
+            )}
+          </Card>
+        </Col>
+      </Row>
+    </Container>
   );
 };
 

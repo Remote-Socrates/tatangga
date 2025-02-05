@@ -24,13 +24,10 @@ const PublicRoute = ({ element }) => {
 const App = () => {
   return (
     <Routes>
-      {/* ✅ Skip login if user is already logged in and redirect to Home */}
       <Route path="/login" element={<PublicRoute element={<Auth />} />} />
-
-      {/* ✅ Keep homepage, user clicks "Let's Q&A" to go to groups */}
       <Route path="/" element={<Home />} />
 
-      {/* ✅ Protected Routes */}
+      {/* Rute diproteksi AuthContext (kalau belum login, akan redirect) */}
       <Route path="/groups" element={<ProtectedRoute element={<Groups />} />} />
       <Route
         path="/groups/:groupId"
