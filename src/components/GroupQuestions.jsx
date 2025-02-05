@@ -1,100 +1,91 @@
-import { useEffect, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { db, auth } from "../firebaseConfig";
+import { db } from "../firebaseConfig";
 import {
   collection,
-  getDocs,
-  doc,
+  addDoc,
   updateDoc,
-  deleteDoc,
   increment,
+  deleteDoc,
   query,
   where,
+  getDocs,
   onSnapshot,
-  addDoc,
-  serverTimestamp,
+  doc,
+  orderBy,
 } from "firebase/firestore";
+import { AuthContext } from "../context/AuthContext";
+import { GroupContext } from "../context/GroupContext";
+import { QuestionContext } from "../context/QuestionContext";
 
 const GroupQuestions = () => {
   const { groupId } = useParams();
+  const { user } = useContext(AuthContext);
+  const { selectedGroup } = useContext(GroupContext);
+  const { questions, setQuestions } = useContext(QuestionContext);
   const navigate = useNavigate();
-  const [questions, setQuestions] = useState([]);
   const [questionText, setQuestionText] = useState("");
-  const [user, setUser] = useState(auth.currentUser);
-  const [isMember, setIsMember] = useState(null);
+  const [error, setError] = useState("");
   const [votedQuestions, setVotedQuestions] = useState(new Set());
+  const [isMember, setIsMember] = useState(null);
   const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [editQuestionText, setEditQuestionText] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
+  // ✅ Check if user is a member of the group
   useEffect(() => {
-    const unsubscribeAuth = auth.onAuthStateChanged((user) => setUser(user));
-
-    const checkMembership = async () => {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(db, "group_members"),
-          where("userId", "==", user.uid),
-          where("groupId", "==", groupId)
-        );
-        const snapshot = await getDocs(q);
-        setIsMember(!snapshot.empty);
-      } catch (err) {
-        setError("Error checking group membership.");
-        setIsMember(false);
-      }
-    };
-
-    const fetchUserVotes = async () => {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(db, `groups/${groupId}/question_votes`),
-          where("userId", "==", user.uid)
-        );
-        const snapshot = await getDocs(q);
-        const voted = new Set(
-          snapshot.docs.map((doc) => doc.data().questionId)
-        );
-        setVotedQuestions(voted);
-      } catch (err) {
-        setError("Error fetching user votes.");
-      }
-    };
-
-    const listenForQuestions = () => {
-      return onSnapshot(
-        collection(db, `groups/${groupId}/questions`),
-        (snapshot) => {
-          const sortedQuestions = snapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => b.votes - a.votes);
-          setQuestions(sortedQuestions);
-        }
-      );
-    };
-
-    checkMembership();
-    if (isMember) {
-      fetchUserVotes();
-      const unsubscribeQuestions = listenForQuestions();
-      return () => unsubscribeQuestions();
-    }
-
-    return () => unsubscribeAuth();
-  }, [groupId, user, isMember]);
-
-  const postQuestion = async () => {
-    setError("");
-    setSuccess("");
-
     if (!user) {
-      setError("You must be logged in to post a question.");
+      setIsMember(false);
       return;
     }
 
+    const checkMembership = async () => {
+      const q = query(
+        collection(db, "group_members"),
+        where("userId", "==", user.uid),
+        where("groupId", "==", groupId)
+      );
+      const snapshot = await getDocs(q);
+      setIsMember(!snapshot.empty);
+    };
+
+    checkMembership();
+  }, [user, groupId]);
+
+  // ✅ Fetch user's voted questions
+  useEffect(() => {
+    if (!user || !isMember) return;
+
+    const fetchUserVotes = async () => {
+      const q = query(
+        collection(db, `groups/${groupId}/question_votes`),
+        where("userId", "==", user.uid)
+      );
+      const snapshot = await getDocs(q);
+      setVotedQuestions(
+        new Set(snapshot.docs.map((doc) => doc.data().questionId))
+      );
+    };
+
+    fetchUserVotes();
+  }, [user, groupId, isMember]);
+
+  // ✅ Fetch and update questions in real time
+  useEffect(() => {
+    if (!groupId) return;
+
+    const q = query(
+      collection(db, `groups/${groupId}/questions`),
+      orderBy("votes", "desc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setQuestions(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => unsubscribe();
+  }, [groupId, setQuestions]);
+
+  // ✅ Post a new question
+  const postQuestion = async () => {
     if (!isMember) {
       setError("You must join this group to post a question.");
       return;
@@ -111,16 +102,15 @@ const GroupQuestions = () => {
         author: user.displayName || user.email,
         userId: user.uid,
         votes: 0,
-        timestamp: serverTimestamp(),
       });
 
-      setQuestionText(""); // Reset input field
-      setSuccess("Question posted successfully!");
+      setQuestionText("");
     } catch (err) {
-      setError("Error posting question. Please try again.");
+      setError("Error posting question.");
     }
   };
 
+  // ✅ Upvote a question
   const upvoteQuestion = async (questionId) => {
     if (!isMember) {
       setError("You must join this group to vote.");
@@ -147,11 +137,13 @@ const GroupQuestions = () => {
     }
   };
 
+  // ✅ Start editing a question
   const startEditingQuestion = (question) => {
     setEditingQuestionId(question.id);
     setEditQuestionText(question.text);
   };
 
+  // ✅ Save the edited question
   const saveEditedQuestion = async () => {
     if (!editQuestionText.trim()) {
       setError("Question cannot be empty.");
@@ -168,120 +160,111 @@ const GroupQuestions = () => {
 
       setEditingQuestionId(null);
       setEditQuestionText("");
-      setSuccess("Question updated successfully!");
     } catch (err) {
       setError("Error updating question.");
     }
   };
 
+  // ✅ Delete a question
   const deleteQuestion = async (questionId) => {
+    if (!isMember) {
+      setError("You must join this group to delete a question.");
+      return;
+    }
+
     if (!window.confirm("Are you sure you want to delete this question?"))
       return;
 
     try {
       await deleteDoc(doc(db, `groups/${groupId}/questions`, questionId));
-      setSuccess("Question deleted successfully!");
     } catch (err) {
       setError("Error deleting question.");
     }
   };
 
-  if (isMember === null) {
-    return <p>Loading...</p>;
-  }
-
-  if (!isMember) {
-    return (
-      <div style={{ textAlign: "center", padding: "20px" }}>
-        <h2>Access Denied</h2>
-        <p>You must join this group to view and post questions.</p>
-        <button onClick={() => navigate("/groups")}>Back to Groups</button>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
-      <h2>Group Questions</h2>
-
+    <div>
+      <h2>{selectedGroup?.name} - Questions</h2>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
 
-      <h3>Post a Question</h3>
-      <input
-        type="text"
-        placeholder="Ask a question..."
-        value={questionText}
-        onChange={(e) => setQuestionText(e.target.value)}
-      />
-      <button onClick={postQuestion}>Post Question</button>
+      <div>
+        <input
+          type="text"
+          placeholder="Ask a question..."
+          value={questionText}
+          onChange={(e) => setQuestionText(e.target.value)}
+        />
+        <button onClick={postQuestion} disabled={!isMember}>
+          Post Question
+        </button>
+      </div>
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {questions.map((question) => (
-          <li
-            key={question.id}
-            style={{
-              margin: "10px 0",
-              border: "1px solid #ccc",
-              padding: "10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div
+      <ul>
+        {questions.length > 0 ? (
+          questions.map((question) => (
+            <li
+              key={question.id}
               style={{
-                flex: 1,
-                cursor:
-                  editingQuestionId === question.id ? "default" : "pointer",
-              }}
-              onClick={(e) => {
-                if (editingQuestionId !== question.id)
-                  navigate(`/groups/${groupId}/questions/${question.id}`);
+                marginBottom: "10px",
+                border: "1px solid #ccc",
+                padding: "10px",
               }}
             >
-              {editingQuestionId === question.id ? (
-                <>
-                  <input
-                    type="text"
-                    value={editQuestionText}
-                    onChange={(e) => setEditQuestionText(e.target.value)}
-                    onClick={(e) => e.stopPropagation()} // Prevent click from triggering navigation
-                  />
-                  <button onClick={saveEditedQuestion}>Save</button>
-                  <button onClick={() => setEditingQuestionId(null)}>
-                    Cancel
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p>
-                    <strong>{question.text}</strong>
-                  </p>
-                  <p>
-                    👤 {question.author} | 👍 {question.votes} votes
-                  </p>
-                </>
-              )}
-            </div>
-            {user && user.uid === question.userId && !editingQuestionId && (
-              <>
-                <button onClick={() => startEditingQuestion(question)}>
-                  Edit
+              <div
+                style={{ cursor: "pointer", flex: 1 }}
+                onClick={(e) => {
+                  if (!editingQuestionId)
+                    navigate(`/groups/${groupId}/questions/${question.id}`);
+                  e.stopPropagation();
+                }}
+              >
+                {editingQuestionId === question.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editQuestionText}
+                      onChange={(e) => setEditQuestionText(e.target.value)}
+                    />
+                    <button onClick={saveEditedQuestion}>Save</button>
+                    <button onClick={() => setEditingQuestionId(null)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>{question.text}</strong>
+                    </p>
+                    <p>
+                      👤 {question.author} | 👍 {question.votes} votes
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: "10px" }}>
+                {user && user.uid === question.userId && (
+                  <>
+                    <button onClick={() => startEditingQuestion(question)}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteQuestion(question.id)}>
+                      Delete
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => upvoteQuestion(question.id)}
+                  disabled={!isMember || votedQuestions.has(question.id)}
+                >
+                  {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
                 </button>
-                <button onClick={() => deleteQuestion(question.id)}>
-                  Delete
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => upvoteQuestion(question.id)}
-              disabled={votedQuestions.has(question.id)}
-            >
-              {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
-            </button>
-          </li>
-        ))}
+              </div>
+            </li>
+          ))
+        ) : (
+          <p>No questions yet. Be the first to ask one!</p>
+        )}
       </ul>
     </div>
   );

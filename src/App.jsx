@@ -1,36 +1,63 @@
-import { Routes, Route } from "react-router";
+import { Routes, Route, Navigate } from "react-router";
 import Home from "./components/Home";
-import Auth from "./components/Auth";
 import Groups from "./components/Groups";
 import GroupQuestions from "./components/GroupQuestions";
-import QuestionDetails from "./components/QuestionDetails"; // Import new component
-import { auth } from "./firebaseConfig";
-import { useState, useEffect } from "react";
+import QuestionDetails from "./components/QuestionDetails";
+import Auth from "./components/Auth";
+import { QuestionProvider } from "./context/QuestionContext";
+import { useContext } from "react";
+import { AuthContext } from "./context/AuthContext";
 
-function App() {
-  const [user, setUser] = useState(auth.currentUser);
+const ProtectedRoute = ({ element }) => {
+  const { user, loading } = useContext(AuthContext);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => setUser(user));
-    return () => unsubscribe();
-  }, []);
+  if (loading) return <p>Loading...</p>;
+  return user ? element : <Navigate to="/login" />;
+};
 
+const PublicRoute = ({ element }) => {
+  const { user } = useContext(AuthContext);
+
+  return user ? <Navigate to="/" /> : element;
+};
+
+const App = () => {
   return (
     <Routes>
+      {/* ✅ Skip login if user is already logged in and redirect to Home */}
+      <Route path="/login" element={<PublicRoute element={<Auth />} />} />
+
+      {/* ✅ Keep homepage, user clicks "Let's Q&A" to go to groups */}
       <Route path="/" element={<Home />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/groups" element={user ? <Groups /> : <Auth />} />
+
+      {/* ✅ Protected Routes */}
+      <Route path="/groups" element={<ProtectedRoute element={<Groups />} />} />
       <Route
         path="/groups/:groupId"
-        element={user ? <GroupQuestions /> : <Auth />}
+        element={
+          <ProtectedRoute
+            element={
+              <QuestionProvider>
+                <GroupQuestions />
+              </QuestionProvider>
+            }
+          />
+        }
       />
       <Route
         path="/groups/:groupId/questions/:questionId"
-        element={user ? <QuestionDetails /> : <Auth />}
+        element={
+          <ProtectedRoute
+            element={
+              <QuestionProvider>
+                <QuestionDetails />
+              </QuestionProvider>
+            }
+          />
+        }
       />
-      <Route path="*" element={<Home />} />
     </Routes>
   );
-}
+};
 
 export default App;

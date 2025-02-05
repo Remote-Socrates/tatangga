@@ -1,65 +1,61 @@
-import { useEffect, useState } from "react";
-import { db, auth } from "../firebaseConfig";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { GroupContext } from "../context/GroupContext";
+import { AuthContext } from "../context/AuthContext";
+import { db } from "../firebaseConfig";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  onSnapshot,
+} from "firebase/firestore";
 
 const Groups = () => {
-  const [groups, setGroups] = useState([]);
-  const [joinedGroups, setJoinedGroups] = useState([]);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [groups, setGroups] = useState([]); // Local state for groups
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
-  const [user, setUser] = useState(auth.currentUser);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const navigate = useNavigate();
+  const [joinedGroups, setJoinedGroups] = useState([]);
 
+  // ✅ Real-time listener for groups
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => setUser(user));
+    const unsubscribe = onSnapshot(collection(db, "groups"), (snapshot) => {
+      setGroups(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
 
-    const fetchGroups = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "groups"));
-        setGroups(
-          querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-        );
-      } catch (err) {
-        setError("Failed to load groups.");
-      }
-    };
+  // ✅ Fetch user's joined groups
+  useEffect(() => {
+    if (!user) return;
 
     const fetchJoinedGroups = async () => {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(db, "group_members"),
-          where("userId", "==", user.uid)
-        );
-        const snapshot = await getDocs(q);
-        setJoinedGroups(snapshot.docs.map((doc) => doc.data().groupId));
-      } catch (err) {
-        setError("Failed to fetch joined groups.");
-      }
+      const q = query(
+        collection(db, "group_members"),
+        where("userId", "==", user.uid)
+      );
+      const snapshot = await getDocs(q);
+      setJoinedGroups(snapshot.docs.map((doc) => doc.data().groupId));
     };
 
-    fetchGroups();
-    if (user) fetchJoinedGroups();
-    return () => unsubscribe();
+    fetchJoinedGroups();
   }, [user]);
 
+  // ✅ Create a new group and update UI immediately
   const createGroup = async () => {
-    setError("");
-    setSuccess("");
-
     if (!user) {
       setError("You must be logged in to create a group.");
       return;
     }
-
     if (!groupName.trim() || !groupDescription.trim()) {
       setError("Please enter both group name and description.");
       return;
     }
-
     try {
       const newGroupRef = await addDoc(collection(db, "groups"), {
         name: groupName,
@@ -67,29 +63,32 @@ const Groups = () => {
         createdBy: user.uid,
       });
 
-      setGroups([
-        ...groups,
-        { id: newGroupRef.id, name: groupName, description: groupDescription },
+      // ✅ Optimistically update the UI
+      setGroups((prevGroups) => [
+        ...prevGroups,
+        {
+          id: newGroupRef.id,
+          name: groupName,
+          description: groupDescription,
+          createdBy: user.uid,
+        },
       ]);
+
       setGroupName("");
       setGroupDescription("");
       setSuccess("Group created successfully!");
     } catch (err) {
-      setError("Error creating group.");
+      setError("Error creating group. Please try again.");
     }
   };
 
   const joinGroup = async (groupId) => {
-    setError("");
-    setSuccess("");
-
     if (!user) {
-      setError("Please log in first.");
+      setError("You must be logged in to join a group.");
       return;
     }
-
     if (joinedGroups.includes(groupId)) {
-      setError("You are already a member of this group.");
+      setError("You have already joined this group.");
       return;
     }
 
@@ -102,15 +101,13 @@ const Groups = () => {
       setJoinedGroups([...joinedGroups, groupId]);
       setSuccess("Successfully joined the group!");
     } catch (err) {
-      setError("Error joining group.");
+      setError("Error joining group. Please try again.");
     }
   };
 
   return (
     <div style={{ textAlign: "center", padding: "20px" }}>
       <h2>Available Groups</h2>
-
-      {/* Error & Success Messages */}
       {error && <p style={{ color: "red" }}>{error}</p>}
       {success && <p style={{ color: "green" }}>{success}</p>}
 
@@ -129,23 +126,18 @@ const Groups = () => {
             value={groupDescription}
             onChange={(e) => setGroupDescription(e.target.value)}
           />
-          <button
-            onClick={createGroup}
-            style={{ marginLeft: "10px", padding: "5px 15px" }}
-          >
-            Create Group
-          </button>
+          <button onClick={createGroup}>Create Group</button>
         </div>
       )}
 
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <ul>
         {groups.map((group) => (
           <li
             key={group.id}
             style={{
-              margin: "10px 0",
-              border: "1px solid #ccc",
+              marginBottom: "15px",
               padding: "10px",
+              border: "1px solid #ccc",
             }}
           >
             <h3>{group.name}</h3>

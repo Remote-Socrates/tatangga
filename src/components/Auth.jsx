@@ -1,102 +1,36 @@
-import { useState } from "react";
-import { auth, googleProvider, db } from "../firebaseConfig";
-import {
-  signInWithPopup,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  signOut,
-} from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { useContext, useState } from "react";
+import { useNavigate } from "react-router";
+import { AuthContext } from "../context/AuthContext";
+import { auth } from "../firebaseConfig";
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 
 const Auth = () => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [user, setUser] = useState(null);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
 
-  // Sign in pakai google
-  const handleGoogleLogin = async () => {
+  const loginWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-      setUser(user);
-
-      // Buat cek di DB apakah user sudah ada
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      // Kalau belum ada, buat baru
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          name: user.displayName,
-          email: user.email,
-          joinedGroups: [],
-        });
-      }
-    } catch (error) {
-      console.error("Google Login Error:", error);
+      await signInWithPopup(auth, provider);
+      navigate("/"); // Redirect to Home after login
+    } catch (err) {
+      setError("Login failed. Please try again.");
     }
-  };
-
-  // Daftar manual lewat email
-  const handleEmailSignup = async () => {
-    try {
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const user = result.user;
-
-      // Ganti nama user
-      await updateProfile(user, { displayName: name });
-      setUser({ ...user, displayName: name });
-
-      // Simpan ke database
-      await setDoc(doc(db, "users", user.uid), {
-        name: name,
-        email: email,
-        joinedGroups: [],
-      });
-    } catch (error) {
-      console.error("Signup Error:", error);
-    }
-  };
-
-  // Logout
-  const handleLogout = async () => {
-    await signOut(auth);
-    setUser(null);
   };
 
   return (
-    <div>
-      <h2>Authentication</h2>
+    <div style={{ textAlign: "center", padding: "20px" }}>
+      <h2>Login to Q&A App</h2>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
       {user ? (
-        <div>
-          <p>Welcome, {user.displayName || user.email}</p>
-          <button onClick={handleLogout}>Logout</button>
-        </div>
+        <>
+          <p>Logged in as {user.displayName || user.email}</p>
+          <button onClick={() => navigate("/")}>Go to Home</button>
+        </>
       ) : (
-        <div>
-          <button onClick={handleGoogleLogin}>Sign in with Google</button>
-          <br />
-          <input
-            type="text"
-            placeholder="Full Name"
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button onClick={handleEmailSignup}>Sign up with Email</button>
-        </div>
+        <button onClick={loginWithGoogle}>Login with Google</button>
       )}
     </div>
   );

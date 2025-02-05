@@ -1,124 +1,73 @@
-import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router";
-import { db, auth } from "../firebaseConfig";
+import { useContext, useState, useEffect } from "react";
+import { useParams } from "react-router";
+import { db } from "../firebaseConfig";
 import {
   collection,
-  doc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
   addDoc,
-  query,
-  where,
-  onSnapshot,
-  serverTimestamp,
+  updateDoc,
   increment,
+  doc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  where,
+  getDocs,
 } from "firebase/firestore";
+import { AuthContext } from "../context/AuthContext";
+import { QuestionContext } from "../context/QuestionContext";
 
 const QuestionDetails = () => {
   const { groupId, questionId } = useParams();
-  const navigate = useNavigate();
-  const [question, setQuestion] = useState(null);
+  const { user } = useContext(AuthContext);
+  const { questions } = useContext(QuestionContext);
+  const question = questions.find((q) => q.id === questionId);
   const [answers, setAnswers] = useState([]);
   const [answerText, setAnswerText] = useState("");
+  const [error, setError] = useState("");
   const [editingAnswerId, setEditingAnswerId] = useState(null);
   const [editAnswerText, setEditAnswerText] = useState("");
-  const [user, setUser] = useState(auth.currentUser);
-  const [isMember, setIsMember] = useState(null);
   const [votedAnswers, setVotedAnswers] = useState(new Set());
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
+  // ✅ Load answers in real-time and sort by votes
   useEffect(() => {
-    const unsubscribeAuth = auth.onAuthStateChanged((user) => setUser(user));
+    if (!groupId || !questionId) return;
 
-    const checkMembership = async () => {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(db, "group_members"),
-          where("userId", "==", user.uid),
-          where("groupId", "==", groupId)
-        );
-        const snapshot = await getDocs(q);
-        setIsMember(!snapshot.empty);
-      } catch (err) {
-        setError("Error checking group membership.");
-        setIsMember(false);
-      }
-    };
+    const q = query(
+      collection(db, `groups/${groupId}/questions/${questionId}/answers`),
+      orderBy("votes", "desc")
+    );
 
-    const fetchQuestion = async () => {
-      try {
-        const questionRef = doc(
-          db,
-          `groups/${groupId}/questions/${questionId}`
-        );
-        const docSnap = await getDoc(questionRef);
-        if (docSnap.exists()) {
-          setQuestion({ id: docSnap.id, ...docSnap.data() });
-        } else {
-          setError("Question not found.");
-        }
-      } catch (err) {
-        setError("Failed to load question.");
-      }
-    };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setAnswers(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    });
 
-    const listenForAnswers = () => {
-      return onSnapshot(
-        collection(db, `groups/${groupId}/questions/${questionId}/answers`),
-        (snapshot) => {
-          const sortedAnswers = snapshot.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() }))
-            .sort((a, b) => b.votes - a.votes);
+    return () => unsubscribe();
+  }, [groupId, questionId]);
 
-          setAnswers(sortedAnswers);
-        }
-      );
-    };
+  // ✅ Fetch user's voted answers
+  useEffect(() => {
+    if (!user) return;
 
     const fetchUserVotes = async () => {
-      if (!user) return;
-      try {
-        const q = query(
-          collection(
-            db,
-            `groups/${groupId}/questions/${questionId}/answer_votes`
-          ),
-          where("userId", "==", user.uid)
-        );
-        const snapshot = await getDocs(q);
-        const voted = new Set(snapshot.docs.map((doc) => doc.data().answerId));
-        setVotedAnswers(voted);
-      } catch (err) {
-        setError("Error fetching answer votes.");
-      }
+      const q = query(
+        collection(
+          db,
+          `groups/${groupId}/questions/${questionId}/answer_votes`
+        ),
+        where("userId", "==", user.uid)
+      );
+      const snapshot = await getDocs(q);
+      setVotedAnswers(new Set(snapshot.docs.map((doc) => doc.data().answerId)));
     };
 
-    checkMembership();
-    if (isMember) {
-      fetchQuestion();
-      fetchUserVotes();
-      const unsubscribeAnswers = listenForAnswers();
-      return () => unsubscribeAnswers();
-    }
+    fetchUserVotes();
+  }, [user, groupId, questionId]);
 
-    return () => unsubscribeAuth();
-  }, [groupId, questionId, user, isMember]);
-
+  // ✅ Post an answer
   const postAnswer = async () => {
-    setError("");
-    setSuccess("");
-
     if (!user) {
       setError("You must be logged in to post an answer.");
-      return;
-    }
-
-    if (!isMember) {
-      setError("You must join this group to answer a question.");
       return;
     }
 
@@ -135,20 +84,19 @@ const QuestionDetails = () => {
           author: user.displayName || user.email,
           userId: user.uid,
           votes: 0,
-          timestamp: serverTimestamp(),
         }
       );
 
-      setAnswerText(""); // Reset input field
-      setSuccess("Answer posted successfully!");
+      setAnswerText(""); // Reset input
     } catch (err) {
-      setError("Error posting answer. Please try again.");
+      setError("Error posting answer.");
     }
   };
 
+  // ✅ Upvote an answer (only once per user)
   const upvoteAnswer = async (answerId) => {
-    if (!isMember) {
-      setError("You must join this group to vote.");
+    if (!user) {
+      setError("You must be logged in to vote.");
       return;
     }
 
@@ -182,11 +130,13 @@ const QuestionDetails = () => {
     }
   };
 
+  // ✅ Start editing an answer
   const startEditingAnswer = (answer) => {
     setEditingAnswerId(answer.id);
     setEditAnswerText(answer.text);
   };
 
+  // ✅ Save the edited answer
   const saveEditedAnswer = async () => {
     if (!editAnswerText.trim()) {
       setError("Answer cannot be empty.");
@@ -203,12 +153,12 @@ const QuestionDetails = () => {
 
       setEditingAnswerId(null);
       setEditAnswerText("");
-      setSuccess("Answer updated successfully!");
     } catch (err) {
       setError("Error updating answer.");
     }
   };
 
+  // ✅ Delete an answer (only for the original author)
   const deleteAnswer = async (answerId) => {
     if (!window.confirm("Are you sure you want to delete this answer?")) return;
 
@@ -216,93 +166,92 @@ const QuestionDetails = () => {
       await deleteDoc(
         doc(db, `groups/${groupId}/questions/${questionId}/answers`, answerId)
       );
-      setSuccess("Answer deleted successfully!");
     } catch (err) {
       setError("Error deleting answer.");
     }
   };
 
-  if (isMember === null) {
-    return <p>Loading...</p>;
-  }
-
-  if (!isMember) {
-    return (
-      <div style={{ textAlign: "center", padding: "20px" }}>
-        <h2>Access Denied</h2>
-        <p>You must join this group to view answers.</p>
-        <button onClick={() => navigate(`/groups/${groupId}`)}>
-          Back to Questions
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ textAlign: "center", padding: "20px" }}>
-      <h2>Question Details</h2>
-
+    <div>
       {error && <p style={{ color: "red" }}>{error}</p>}
-      {success && <p style={{ color: "green" }}>{success}</p>}
 
-      {question && (
-        <div>
-          <h3>{question.text}</h3>
+      {question ? (
+        <>
+          <h2>{question.text}</h2>
           <p>
             👤 {question.author} | 👍 {question.votes} votes
           </p>
-        </div>
-      )}
 
-      <h3>Post an Answer</h3>
-      <input
-        type="text"
-        placeholder="Write your answer..."
-        value={answerText}
-        onChange={(e) => setAnswerText(e.target.value)}
-      />
-      <button onClick={postAnswer}>Post Answer</button>
+          <h3>Post an Answer</h3>
+          <input
+            type="text"
+            placeholder="Write your answer..."
+            value={answerText}
+            onChange={(e) => setAnswerText(e.target.value)}
+          />
+          <button onClick={postAnswer}>Post Answer</button>
 
-      <h3>Answers</h3>
-      <ul>
-        {answers.map((answer) => (
-          <li key={answer.id}>
-            {editingAnswerId === answer.id ? (
-              <>
-                <input
-                  type="text"
-                  value={editAnswerText}
-                  onChange={(e) => setEditAnswerText(e.target.value)}
-                />
-                <button onClick={saveEditedAnswer}>Save</button>
-                <button onClick={() => setEditingAnswerId(null)}>Cancel</button>
-              </>
-            ) : (
-              <>
-                <p>
-                  {answer.text} - 👤 {answer.author} | 👍 {answer.votes} votes
-                </p>
-                {user && user.uid === answer.userId && (
-                  <>
-                    <button onClick={() => startEditingAnswer(answer)}>
-                      Edit
-                    </button>
-                    <button onClick={() => deleteAnswer(answer.id)}>
-                      Delete
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => upvoteAnswer(answer.id)}
-                  disabled={votedAnswers.has(answer.id)}
+          <h3>Answers</h3>
+          <ul>
+            {answers.length > 0 ? (
+              answers.map((answer) => (
+                <li
+                  key={answer.id}
+                  style={{
+                    marginBottom: "10px",
+                    border: "1px solid #ccc",
+                    padding: "10px",
+                  }}
                 >
-                  {votedAnswers.has(answer.id) ? "Voted" : "Upvote"}
-                </button>
-              </>
+                  {editingAnswerId === answer.id ? (
+                    <>
+                      <input
+                        type="text"
+                        value={editAnswerText}
+                        onChange={(e) => setEditAnswerText(e.target.value)}
+                      />
+                      <button onClick={saveEditedAnswer}>Save</button>
+                      <button onClick={() => setEditingAnswerId(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {answer.text} - 👤 {answer.author} | 👍 {answer.votes}{" "}
+                        votes
+                      </p>
+                    </>
+                  )}
+
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    {user && user.uid === answer.userId && (
+                      <>
+                        <button onClick={() => startEditingAnswer(answer)}>
+                          Edit
+                        </button>
+                        <button onClick={() => deleteAnswer(answer.id)}>
+                          Delete
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => upvoteAnswer(answer.id)}
+                      disabled={votedAnswers.has(answer.id)}
+                    >
+                      {votedAnswers.has(answer.id) ? "Voted" : "Upvote"}
+                    </button>
+                  </div>
+                </li>
+              ))
+            ) : (
+              <p>No answers yet. Be the first to answer!</p>
             )}
-          </li>
-        ))}
-      </ul>
+          </ul>
+        </>
+      ) : (
+        <p>Loading question...</p>
+      )}
     </div>
   );
 };
