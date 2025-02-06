@@ -74,11 +74,6 @@ const QuestionDetails = () => {
   }, [user, groupId, questionId]);
 
   const postAnswer = async () => {
-    if (!user) {
-      setError("You must be logged in to post an answer.");
-      return;
-    }
-
     if (!answerText.trim()) {
       setError("");
       Swal.fire({
@@ -107,16 +102,6 @@ const QuestionDetails = () => {
   };
 
   const upvoteAnswer = async (answerId) => {
-    if (!user) {
-      setError("You must be logged in to vote.");
-      return;
-    }
-
-    if (votedAnswers.has(answerId)) {
-      setError("You can only vote on an answer once.");
-      return;
-    }
-
     try {
       const answerRef = doc(
         db,
@@ -149,7 +134,12 @@ const QuestionDetails = () => {
 
   const saveEditedAnswer = async () => {
     if (!editAnswerText.trim()) {
-      setError("Answer cannot be empty.");
+      setError("");
+      Swal.fire({
+        icon: "error",
+        title: "Warning",
+        text: "Answer cannot be empty.",
+      });
       return;
     }
 

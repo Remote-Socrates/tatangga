@@ -48,10 +48,6 @@ const Groups = () => {
   }, [user]);
 
   const createGroup = async () => {
-    if (!user) {
-      setError("You must be logged in to create a group.");
-      return;
-    }
     if (!groupName.trim() || !groupDescription.trim()) {
       setError("");
       Swal.fire({
@@ -81,15 +77,6 @@ const Groups = () => {
   };
 
   const joinGroup = async (groupId) => {
-    if (!user) {
-      setError("You must be logged in to join a group.");
-      return;
-    }
-    if (joinedGroups.includes(groupId)) {
-      setError("You have already joined this group.");
-      return;
-    }
-
     try {
       await addDoc(collection(db, "group_members"), {
         userId: user.uid,
