@@ -115,11 +115,6 @@ const GroupQuestions = () => {
 
   // Posting pertanyaan baru
   const postQuestion = async () => {
-    if (!isMember) {
-      setError("You must join this group to post a question.");
-      return;
-    }
-
     if (!questionText.trim()) {
       setError("");
       Swal.fire({
@@ -153,7 +148,12 @@ const GroupQuestions = () => {
   // * Fitur Simpan perubahan pertanyaan
   const saveEditedQuestion = async () => {
     if (!editQuestionText.trim()) {
-      setError("Question cannot be empty.");
+      setError("");
+      Swal.fire({
+        icon: "error",
+        title: "Warning",
+        text: "Question cannot be empty.",
+      });
       return;
     }
 
@@ -175,10 +175,6 @@ const GroupQuestions = () => {
 
   // * Fitur Hapus pertanyaan
   const deleteQuestion = async (questionId) => {
-    if (!isMember) {
-      setError("You must join this group to delete a question.");
-      return;
-    }
     // * SweetAlert
     Swal.fire({
       title: "Are you sure you want to delete this question?",
@@ -195,7 +191,7 @@ const GroupQuestions = () => {
         } catch (error) {
           setError("Error deleting question.");
         }
-      } 
+      }
       if (result.isDismissed) {
         Swal.fire("Cancelled", "Delete question cancelled", "error");
       }
@@ -204,16 +200,6 @@ const GroupQuestions = () => {
 
   // Voting pertanyaan
   const upvoteQuestion = async (questionId) => {
-    if (!isMember) {
-      setError("You must join this group to vote.");
-      return;
-    }
-
-    if (votedQuestions.has(questionId)) {
-      setError("You can only vote on a question once.");
-      return;
-    }
-
     try {
       const questionRef = doc(db, `groups/${groupId}/questions`, questionId);
       await updateDoc(questionRef, { votes: increment(1) });
@@ -284,83 +270,83 @@ const GroupQuestions = () => {
             {questions.length > 0 ? (
               questions.map((question) => (
                 <ListGroup.Item
-                    key={question.id}
-                    className="d-flex flex-column gap-2"
-                    onClick={(e) => {
+                  key={question.id}
+                  className="d-flex flex-column gap-2"
+                  onClick={(e) => {
                     if (!editingQuestionId) {
-                        navigate(`/groups/${groupId}/questions/${question.id}`);
+                      navigate(`/groups/${groupId}/questions/${question.id}`);
                     }
-                    }}
-                    style={{ cursor: "pointer" }}
+                  }}
+                  style={{ cursor: "pointer" }}
                 >
-                    {editingQuestionId === question.id ? (
+                  {editingQuestionId === question.id ? (
                     <div className="mb-2" onClick={(e) => e.stopPropagation()}>
-                        <Form.Control
+                      <Form.Control
                         type="text"
                         value={editQuestionText}
                         onChange={(e) => setEditQuestionText(e.target.value)}
                         className="mb-2"
-                        />
-                        <Button variant="success" size="sm" className="me-2" onClick={saveEditedQuestion}>
+                      />
+                      <Button variant="success" size="sm" className="me-2" onClick={saveEditedQuestion}>
                         Save
-                        </Button>
-                        <Button variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => setEditingQuestionId(null)}>
                         Cancel
-                        </Button>
+                      </Button>
                     </div>
-                    ) : (
+                  ) : (
                     <>
-                        <p className="mb-1">
+                      <p className="mb-1">
                         <strong>{question.text}</strong>
-                        </p>
-                        <p className="text-muted mb-0">
+                      </p>
+                      <p className="text-muted mb-0">
                         👤 {question.author} | 👍 {question.votes} votes
-                        </p>
+                      </p>
                     </>
-                    )}
-                    <Row className="mt-2">
+                  )}
+                  <Row className="mt-2">
                     <Col>
-                        <Button
+                      <Button
                         variant="outline-success"
                         size="sm"
                         onClick={(e) => {
-                            e.stopPropagation();
-                            upvoteQuestion(question.id);
+                          e.stopPropagation();
+                          upvoteQuestion(question.id);
                         }}
                         disabled={votedQuestions.has(question.id)}
-                        >
+                      >
                         {votedQuestions.has(question.id) ? "Voted" : "Upvote"}
-                        </Button>
-                        {user && user.uid === question.userId && (
+                      </Button>
+                      {user && user.uid === question.userId && (
                         <>
-                            <Button
+                          <Button
                             variant="outline-primary"
                             size="sm"
                             className="ms-2"
                             onClick={(e) => {
-                                e.stopPropagation();
-                                startEditingQuestion(question);
+                              e.stopPropagation();
+                              startEditingQuestion(question);
                             }}
-                            >
+                          >
                             Edit
-                            </Button>
-                            <Button
+                          </Button>
+                          <Button
                             variant="outline-danger"
                             size="sm"
                             className="ms-2"
                             onClick={(e) => {
-                                e.stopPropagation();
-                                deleteQuestion(question.id);
+                              e.stopPropagation();
+                              deleteQuestion(question.id);
                             }}
-                            >
+                          >
                             Delete
-                            </Button>
+                          </Button>
                         </>
-                        )}
+                      )}
                     </Col>
-                    </Row>
+                  </Row>
                 </ListGroup.Item>
-                ))
+              ))
             ) : (
               <p className="text-muted">
                 No questions yet. Be the first to ask one!
